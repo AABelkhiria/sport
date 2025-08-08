@@ -1,15 +1,28 @@
-{
-    &i2c0 {
-        mpu6050: mpu6050@68 {
-            compatible = "invensense,mpu6050";
-            reg = <0x68>;
-            status = "okay";
-            int-gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
-            smplrt-div = <249>;
-        };
-    };
-
+/ {
 	aliases {
-		gyro_sensor = &mpu6050;
+		gyro-sensor = &mpu6050;
+	};
+};
+
+&pinctrl {
+
+	i2c0_default: i2c0_default {
+		group1 {
+			pinmux = <I2C0_SDA_GPIO8>,
+					 <I2C0_SCL_GPIO9>;
+			bias-pull-up;
+			drive-open-drain;
+			output-high;
+		};
+	};
+};
+
+&i2c0 {
+	mpu6050: mpu6050@68 {
+		compatible = "invensense,mpu6050";
+		reg = <0x68>;
+		status = "okay";
+		int-gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
+		smplrt-div = <249>;
 	};
 };

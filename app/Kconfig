@@ -1,0 +1,11 @@
+menu "Sport Application"
+
+endmenu
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu
+
+module = SPORT
+module-str = Sport
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
