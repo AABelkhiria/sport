@@ -1,6 +1,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
+#include "ble.h"
+
 #include <stdio.h>
 
 #include <zephyr/logging/log.h>
@@ -10,10 +12,21 @@ static const struct device* gyro_sensor = DEVICE_DT_GET(DT_ALIAS(gyro_sensor));
 
 struct k_work_delayable measurement_work;
 
-static void measurement_work_fn(struct k_work *work)
+/* ===== Helpers ===== */
+static inline int16_t sensor_to_int16(const struct sensor_value* val, double scale)
 {
+  double d = sensor_value_to_double(val);
+  return (int16_t)(d * scale);
+}
+
+static struct gpio_dt_spec led = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led0), gpios, {0});
+static bool led_is_on = false;
+
+/* ===== Measurement Task ===== */
+static void measurement_work_fn(struct k_work* work)
+{
+  k_work_reschedule(&measurement_work, K_SECONDS(3));
   LOG_INF("Measurement work function called.");
-  k_work_reschedule(&measurement_work, K_SECONDS(1));
 
   if (sensor_sample_fetch(gyro_sensor) < 0) {
     LOG_ERR("Sensor sample fetch failed");
@@ -38,18 +51,30 @@ static void measurement_work_fn(struct k_work *work)
   LOG_INF("Gyro: X=%.2f Y=%.2f Z=%.2f rad/s", sensor_value_to_double(&gyro_x), sensor_value_to_double(&gyro_y),
           sensor_value_to_double(&gyro_z));
 
+  gyro_x_val = sensor_to_int16(&gyro_x, 100);
+  gyro_y_val = sensor_to_int16(&gyro_y, 100);
+  gyro_z_val = sensor_to_int16(&gyro_z, 100);
+
+  accel_x_val = sensor_to_int16(&accel_x, 100);
+  accel_y_val = sensor_to_int16(&accel_y, 100);
+  accel_z_val = sensor_to_int16(&accel_z, 100);
 }
 
 int main(void)
 {
+  bool err = bt_init();
+  if (!err) {
+    LOG_ERR("Bluetooth initialization failed");
+    return -1;
+  }
 
   k_work_init_delayable(&measurement_work, measurement_work_fn);
 
   if (!device_is_ready(gyro_sensor)) {
-    LOG_ERR("MPU-6500 device not ready yet.");
+    LOG_ERR("Gyro device not ready yet.");
   }
   else {
-    k_work_reschedule(&measurement_work, K_SECONDS(1));
+    k_work_reschedule(&measurement_work, K_SECONDS(3));
   }
 
   return 0;
