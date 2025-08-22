@@ -1,0 +1,11 @@
+menu "Simulator Application"
+
+endmenu
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu
+
+module = SIMULATOR
+module-str = Simulator
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"

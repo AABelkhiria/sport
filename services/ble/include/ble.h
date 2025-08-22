@@ -5,6 +5,7 @@
 #include <zephyr/bluetooth/services/bas.h>
 #include <zephyr/bluetooth/services/cts.h>
 #include <zephyr/bluetooth/gatt.h>
+#include <zephyr/bluetooth/conn.h>
 
 // extern State currentState;
 

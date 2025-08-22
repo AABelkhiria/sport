@@ -1,7 +1,9 @@
 #include "ble.h"
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(BLE, CONFIG_SPORT_LOG_LEVEL);
+LOG_MODULE_REGISTER(BLE, CONFIG_BT_LOG_LEVEL);
+
+// #include <zephyr/bluetooth/hci.h>
 
 int16_t gyro_x_val = 0;
 int16_t gyro_y_val = 0;
@@ -34,13 +36,7 @@ int16_t accel_z_val = 0;
 /* ===== Advertising Data ===== */
 static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-    // BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, strlen(CONFIG_BT_DEVICE_NAME)),
     BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_GYRO_SER_VAL),
-    // BT_DATA_BYTES(BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(BT_UUID_BAS_VAL), BT_UUID_16_ENCODE(BT_UUID_CTS_VAL)),
-};
-
-static const struct bt_data sd[] = {
-  BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
 };
 
 /* ===== Read Callbacks ===== */
@@ -122,6 +118,49 @@ BT_GATT_SERVICE_DEFINE(gyro_svc,
   )
 );
 
+static void connected(struct bt_conn *conn, uint8_t err)
+{
+    if (err) {
+        LOG_INF("Connection failed (err 0x%02x)\n", err);
+    } else {
+        LOG_INF("Connected\n");
+    }
+}
+
+static void disconnected(struct bt_conn *conn, uint8_t reason)
+{
+    LOG_INF("Disconnected (reason 0x%02x)\n", reason);
+}
+
+static struct bt_conn_cb conn_callbacks = {
+    .connected = connected,
+    .disconnected = disconnected,
+};
+
+void pairing_complete(struct bt_conn *conn, bool bonded)
+{
+	LOG_INF("Pairing completed. Rebooting in 5 seconds...\n");
+
+	k_sleep(K_SECONDS(5));
+	// sys_reboot(SYS_REBOOT_WARM);
+}
+
+static void pairing_failed(struct bt_conn *conn, enum bt_security_err reason)
+{
+	LOG_INF("Pairing Failed (%d). Disconnecting.\n", reason);
+}
+
+static void pacs_bond_deleted(uint8_t id, const bt_addr_le_t *peer)
+{
+  LOG_INF("Bond deleted for peer with ID %d\n", id);
+}
+
+static struct bt_conn_auth_info_cb bt_conn_auth_info = {
+	.pairing_complete = pairing_complete,
+  .pairing_failed = pairing_failed,
+  .bond_deleted = pacs_bond_deleted,
+};
+
 void bt_ready(void)
 {
   int err;
@@ -132,7 +171,7 @@ void bt_ready(void)
   //   settings_load();
   // }
 
-  err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+  err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
   if (err) {
     LOG_INF("Advertising failed to start (err %d)\n", err);
     return;
@@ -149,6 +188,9 @@ bool bt_init(void)
     return false;
   }
 
+  bt_conn_cb_register(&conn_callbacks);
+  bt_conn_auth_info_cb_register(&bt_conn_auth_info);
+  
   bt_ready();
   return true;
 }

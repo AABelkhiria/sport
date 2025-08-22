@@ -1,14 +1,12 @@
 #include <zephyr/kernel.h>
-#include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
+#include <math.h>
 #include "ble.h"
 
 #include <stdio.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(sport_app, CONFIG_SPORT_LOG_LEVEL);
-
-static const struct device* gyro_sensor = DEVICE_DT_GET(DT_ALIAS(gyro_sensor));
+LOG_MODULE_REGISTER(simulator_app, CONFIG_SIMULATOR_LOG_LEVEL);
 
 struct k_work_delayable measurement_work;
 
@@ -19,29 +17,38 @@ static inline int16_t sensor_to_int16(const struct sensor_value* val, double sca
   return (int16_t)(d * scale);
 }
 
+static double time_step = 0.0;
 
 /* ===== Measurement Task ===== */
 static void measurement_work_fn(struct k_work* work)
 {
   k_work_reschedule(&measurement_work, K_SECONDS(3));
-  LOG_INF("Measurement work function called.\r");
-
-  if (sensor_sample_fetch(gyro_sensor) < 0) {
-    LOG_ERR("Sensor sample fetch failed");
-    return;
-  }
 
   struct sensor_value accel_x, accel_y, accel_z;
   struct sensor_value gyro_x, gyro_y, gyro_z;
 
-  sensor_channel_get(gyro_sensor, SENSOR_CHAN_ACCEL_X, &accel_x);
-  sensor_channel_get(gyro_sensor, SENSOR_CHAN_ACCEL_Y, &accel_y);
-  sensor_channel_get(gyro_sensor, SENSOR_CHAN_ACCEL_Z, &accel_z);
+  double accel_x_sim = sin(time_step);
+  double accel_y_sim = sin(time_step + 3.14 / 2);
+  double accel_z_sim = -9.8 + sin(time_step);
 
-  // Get gyroscope data
-  sensor_channel_get(gyro_sensor, SENSOR_CHAN_GYRO_X, &gyro_x);
-  sensor_channel_get(gyro_sensor, SENSOR_CHAN_GYRO_Y, &gyro_y);
-  sensor_channel_get(gyro_sensor, SENSOR_CHAN_GYRO_Z, &gyro_z);
+  double gyro_x_sim = 0.5 * sin(time_step);
+  double gyro_y_sim = 0.5 * sin(time_step + 3.14);
+  double gyro_z_sim = 0.5 * sin(time_step * 2);
+
+  accel_x.val1 = (int)(accel_x_sim * 100);
+  accel_x.val2 = (int)((accel_x_sim - (int)accel_x_sim) * 1000000);
+  accel_y.val1 = (int)(accel_y_sim * 100);
+  accel_y.val2 = (int)((accel_y_sim - (int)accel_y_sim) * 1000000);
+  accel_z.val1 = (int)(accel_z_sim * 100);
+  accel_z.val2 = (int)((accel_z_sim - (int)accel_z_sim) * 1000000); 
+
+  gyro_x.val1 = (int)(gyro_x_sim * 100);
+  gyro_x.val2 = (int)((gyro_x_sim - (int)gyro_x_sim) * 1000000);
+  gyro_y.val1 = (int)(gyro_y_sim * 100);
+  gyro_y.val2 = (int)((gyro_y_sim - (int)gyro_y_sim) * 1000000);
+  gyro_z.val1 = (int)(gyro_z_sim * 100);
+  gyro_z.val2 = (int)((gyro_z_sim - (int)gyro_z_sim) * 1000000);
+
 
   LOG_INF("Accel: X=%.2f Y=%.2f Z=%.2f m/s^2\r", sensor_value_to_double(&accel_x), sensor_value_to_double(&accel_y),
           sensor_value_to_double(&accel_z));
@@ -68,12 +75,7 @@ int main(void)
 
   k_work_init_delayable(&measurement_work, measurement_work_fn);
 
-  if (!device_is_ready(gyro_sensor)) {
-    LOG_ERR("Gyro device not ready yet.");
-  }
-  else {
-    k_work_reschedule(&measurement_work, K_SECONDS(3));
-  }
+  k_work_reschedule(&measurement_work, K_SECONDS(3));
 
   return 0;
 }
